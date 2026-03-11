@@ -1,0 +1,30 @@
+name: Wemix Bot
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # 10분마다 실행 (UTC 기준)
+  workflow_dispatch: # 수동 실행 버튼 추가
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: |
+          pip install requests selenium webdriver-manager
+      - name: Run Bot
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: python bot.py
+      - name: Commit changes # 변동된 좋아요 숫자를 수첩에 저장
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+          git add last_counts.json
+          git commit -m "Update counts" || exit 0
+          git push
