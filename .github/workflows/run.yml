@@ -2,16 +2,20 @@ name: Wemix Bot
 
 on:
   schedule:
-    - cron: '*/10 * * * *' # 10분마다 실행 (UTC 기준)
-  workflow_dispatch: # 수동 실행 버튼 추가
+    - cron: '*/30 * * * *' # 너무 자주 돌면 차단될 수 있어 30분으로 조정했습니다.
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    # 권한 명시 (이게 추가되어야 파일을 저장할 수 있습니다)
+    permissions:
+      contents: write
+      
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4 # 최신 버전으로 업데이트
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # 최신 버전으로 업데이트
         with:
           python-version: '3.9'
       - name: Install dependencies
@@ -21,10 +25,11 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: python bot.py
-      - name: Commit changes # 변동된 좋아요 숫자를 수첩에 저장
+      - name: Commit and Push changes
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
           git add last_counts.json
+          # 변경사항이 있을 때만 저장하고, 없으면 조용히 넘어가라는 뜻
           git commit -m "Update counts" || exit 0
           git push
