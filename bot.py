@@ -8,14 +8,14 @@ from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from webdriver_manager.chrome import ChromeDriverManager
 
-# 1. 설정 (테스트를 위해 기준을 5개로 낮춤)
+# 1. 테스트 설정 (0개 이상이면 무조건 발송)
 SLACK_URL = os.environ.get('SLACK_WEBHOOK_URL')
-TARGET_LIKES = 5 # 테스트를 위해 5개로 낮췄습니다. 50으로 다시 바꾸지 마세요!
+TARGET_LIKES = 0  # <--- 테스트를 위해 0으로 설정했습니다!
 BASE_URL = "https://wemix.com/ko/community"
 DB_FILE = "last_counts.json"
 
 def load_history():
-    return {} # 무조건 빈 수첩을 반환해서 모든 글을 '신규'로 인식하게 함
+    return {} # 무조건 빈 수첩으로 시작 (모든 글 발송)
 
 # 2. 브라우저 설정
 options = Options()
@@ -28,47 +28,30 @@ options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) Apple
 driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=options)
 
 try:
-    print(f"🔗 {BASE_URL} 접속 중...")
+    print("🔗 슬랙 연결 테스트 시작...")
     driver.get(BASE_URL)
-    time.sleep(20) # 로딩 시간을 20초로 더 늘림
+    time.sleep(10)
 
-    # 스크롤 30번
-    for i in range(30):
-        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-        time.sleep(1.5)
-
-    updated_posts = []
-    
-    # 3. 데이터 추출 및 로그 기록
     body_text = driver.find_element(By.TAG_NAME, "body").text
     lines = [l.strip() for l in body_text.split('\n') if l.strip()]
     
-    print(f"📊 탐색된 전체 문장 수: {len(lines)}")
-    print("--- [수색 시작] ---")
-
+    found_count = 0
     for i in range(len(lines)):
         if 'Views' in lines[i]:
             try:
-                # 봇이 무엇을 찾았는지 로그에 무조건 찍습니다.
-                raw_title = lines[i-3]
-                raw_likes = int(''.join(filter(str.isdigit, lines[i+1])))
-                print(f"👀 발견: 제목({raw_title[:15]}...) / 좋아요({raw_likes})")
+                title = lines[i-3]
+                likes = int(''.join(filter(str.isdigit, lines[i+1])))
                 
-                if raw_likes >= TARGET_LIKES and not raw_title.isdigit():
-                    updated_posts.append({"title": raw_title, "likes": raw_likes, "status": "📢 테스트 발송"})
+                # 테스트: 발견하는 족족 슬랙 전송 (최대 3개만)
+                if found_count < 3:
+                    msg = {"text": f"✅ *[슬랙 연결 성공!]*\n👉 *제목:* {title}\n❤️ *좋아요:* {likes}개"}
+                    res = requests.post(SLACK_URL, json=msg)
+                    print(f"📤 전송 시도: {title[:10]}... 결과: {res.status_code}")
+                    found_count += 1
             except: continue
 
     driver.quit()
-
-    # 4. 슬랙 전송 결과 확인
-    if updated_posts:
-        print(f"🎯 알림 대상 {len(updated_posts)}건 발견! 슬랙으로 쏩니다.")
-        for p in updated_posts:
-            msg = {"text": f"🧪 *[테스트 알림]*\n👉 {p['title']}\n❤️ {p['likes']}개"}
-            res = requests.post(SLACK_URL, json=msg)
-            print(f"📤 전송 결과: {res.status_code} (200이면 성공)")
-    else:
-        print("❌ 5개 넘는 좋아요 게시글도 못 찾았습니다. 사이트 구조를 다시 확인해야 합니다.")
+    print(f"\n✨ 테스트 종료. 슬랙 채널을 확인해 보세요!")
 
 except Exception as e:
     print(f"❌ 에러: {e}")
