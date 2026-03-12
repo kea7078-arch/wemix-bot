@@ -2,34 +2,37 @@ name: Wemix Bot
 
 on:
   schedule:
-    - cron: '*/30 * * * *' # 너무 자주 돌면 차단될 수 있어 30분으로 조정했습니다.
+    - cron: '0 * * * *' # 매 정각마다 실행 (서버 부하 방지를 위해 1시간 단위 추천)
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    # 권한 명시 (이게 추가되어야 파일을 저장할 수 있습니다)
     permissions:
-      contents: write
+      contents: write # 이 줄이 권한을 명시적으로 선언합니다.
       
     steps:
-      - uses: actions/checkout@v4 # 최신 버전으로 업데이트
+      - uses: actions/checkout@v4 # v3에서 v4로 업데이트
       - name: Set up Python
-        uses: actions/setup-python@v5 # 최신 버전으로 업데이트
+        uses: actions/setup-python@v5 # v4에서 v5로 업데이트
         with:
           python-version: '3.9'
+          
       - name: Install dependencies
         run: |
           pip install requests selenium webdriver-manager
+          
       - name: Run Bot
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: python bot.py
+        
       - name: Commit and Push changes
         run: |
           git config --global user.name 'github-actions'
           git config --global user.email 'github-actions@github.com'
+          # 파일이 없으면 새로 만들고, 있으면 추가합니다.
+          touch last_counts.json
           git add last_counts.json
-          # 변경사항이 있을 때만 저장하고, 없으면 조용히 넘어가라는 뜻
           git commit -m "Update counts" || exit 0
           git push
